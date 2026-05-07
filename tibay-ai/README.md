@@ -27,7 +27,7 @@ Open:
 
 Demo accounts (auto-seeded on first run if database is empty):
 
-- Client: `client@demo.com` / `demo1234`
+- Hirer: `client@demo.com` / `demo1234`
 - Worker: `worker@demo.com` / `demo1234`
 
 ## MySQL Run
@@ -77,5 +77,5 @@ Roboflow hosted endpoints normally accept a multipart form upload field named `f
 1. Login as Worker → `Verify ID` → upload Government ID + Selfie
 2. Upload welding image/video → AI-assisted assessment + authenticity screening
 3. Generate portfolio → paste Tagalog/Taglish worker notes → ATS English output
-4. Login as Client → post job → review applicants → Hire → match created
+4. Login as Hirer → post job → review applicants → Hire → match created
 5. Open chat → send messages → notifications appear

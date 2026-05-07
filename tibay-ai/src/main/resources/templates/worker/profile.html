@@ -30,7 +30,11 @@
 							<div class="text-muted small">
 								<span th:text="${worker.barangay}">Barangay</span><span th:text="${worker.city != null ? ', ' + worker.city : ''}"></span>
 							</div>
-							<div class="small">Skill Score: <span class="fw-semibold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</span></div>
+							<div class="small">
+								AI Score: <span class="fw-semibold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</span>
+								<span class="mx-1">•</span>
+								Final Rating: <span class="fw-semibold" th:text="${worker.finalRatingScore != null ? worker.finalRatingScore : '--'}">--</span>
+							</div>
 						</div>
 					</div>
 					<hr class="my-3">

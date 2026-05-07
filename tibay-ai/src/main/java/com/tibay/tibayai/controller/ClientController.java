@@ -152,6 +152,16 @@ public class ClientController {
 		return "redirect:/client/jobs/" + jobId;
 	}
 
+	@PostMapping("/jobs/{jobId}/applications/{applicationId}/score")
+	public String score(@PathVariable Long jobId, @PathVariable Long applicationId, @RequestParam("hirerScore") Integer hirerScore,
+			@RequestParam(value = "hirerOverride", defaultValue = "false") boolean hirerOverride,
+			@RequestParam(value = "hirerNotes", required = false) String hirerNotes) {
+		var client = currentUserService.requireClientProfile();
+		var job = jobPostRepository.findById(jobId).orElseThrow();
+		jobService.scoreApplication(client, job, applicationId, hirerScore, hirerOverride, hirerNotes);
+		return "redirect:/client/jobs/" + jobId;
+	}
+
 	@GetMapping("/workers/{workerId}")
 	public String workerProfile(@PathVariable Long workerId, Model model) {
 		var client = currentUserService.requireClientProfile();

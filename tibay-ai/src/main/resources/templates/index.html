@@ -13,10 +13,10 @@
 				<div class="card-body">
 					<div class="d-flex flex-wrap gap-2">
 						<a class="btn btn-dark" th:href="@{/register/worker}" sec:authorize="!isAuthenticated()">Register as Worker</a>
-						<a class="btn btn-outline-dark" th:href="@{/register/client}" sec:authorize="!isAuthenticated()">Register as Client</a>
+						<a class="btn btn-outline-dark" th:href="@{/register/client}" sec:authorize="!isAuthenticated()">Register as Hirer</a>
 						<a class="btn btn-warning" th:href="@{/login}" sec:authorize="!isAuthenticated()">Login</a>
 						<a class="btn btn-primary" th:href="@{/worker/dashboard}" sec:authorize="hasRole('WORKER')">Go to Worker Dashboard</a>
-						<a class="btn btn-primary" th:href="@{/client/dashboard}" sec:authorize="hasRole('CLIENT')">Go to Client Dashboard</a>
+						<a class="btn btn-primary" th:href="@{/client/dashboard}" sec:authorize="hasRole('CLIENT')">Go to Hirer Dashboard</a>
 					</div>
 				</div>
 			</div>
@@ -31,7 +31,7 @@
 						<li>Worker uploads welding image/video</li>
 						<li>AI-assisted skill scoring + authenticity screening</li>
 						<li>AI generates ATS-ready portfolio from Taglish</li>
-						<li>Client posts job → reviews applicants → hires</li>
+						<li>Hirer posts job → reviews applicants → hires</li>
 						<li>Match created → chat + notifications</li>
 					</ol>
 				</div>
@@ -41,4 +41,3 @@
 </main>
 </body>
 </html>
-

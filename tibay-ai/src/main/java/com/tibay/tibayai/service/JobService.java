@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.tibay.tibayai.dto.JobPostForm;
 import com.tibay.tibayai.entity.ApplicationStatus;
@@ -18,6 +19,7 @@ import com.tibay.tibayai.entity.WorkerProfile;
 import com.tibay.tibayai.repo.JobApplicationRepository;
 import com.tibay.tibayai.repo.JobPostRepository;
 import com.tibay.tibayai.repo.MatchRepository;
+import com.tibay.tibayai.repo.WorkerProfileRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +29,7 @@ public class JobService {
 	private final JobPostRepository jobPostRepository;
 	private final JobApplicationRepository jobApplicationRepository;
 	private final MatchRepository matchRepository;
+	private final WorkerProfileRepository workerProfileRepository;
 	private final NotificationService notificationService;
 
 	@Transactional
@@ -75,6 +78,15 @@ public class JobService {
 				existing.setStatus(ApplicationStatus.APPLIED);
 				existing.setAppliedAt(Instant.now());
 				existing.setCoverNote(coverNote);
+				Integer aiScore = worker.getLatestSkillScore() == null ? 70 : worker.getLatestSkillScore();
+				existing.setAiScore(aiScore);
+				if (existing.getHirerScore() != null) {
+					boolean override = existing.getHirerOverride() == null ? true : existing.getHirerOverride();
+					int finalScore = override ? existing.getHirerScore() : computeHybridScore(aiScore, existing.getHirerScore());
+					existing.setFinalScore(finalScore);
+				} else {
+					existing.setFinalScore(aiScore);
+				}
 				jobApplicationRepository.save(existing);
 				notificationService.notify(job.getClientProfile().getUser(), NotificationType.APPLICATION_RECEIVED,
 						"New application received for: " + job.getTitle(), "/client/jobs/" + job.getId());
@@ -86,11 +98,59 @@ public class JobService {
 		app.setJobPost(job);
 		app.setWorkerProfile(worker);
 		app.setCoverNote(coverNote);
+		Integer aiScore = worker.getLatestSkillScore() == null ? 70 : worker.getLatestSkillScore();
+		app.setAiScore(aiScore);
+		app.setFinalScore(aiScore);
 		jobApplicationRepository.save(app);
 
 		notificationService.notify(job.getClientProfile().getUser(), NotificationType.APPLICATION_RECEIVED,
 				"New application received for: " + job.getTitle(), "/client/jobs/" + job.getId());
 		return app;
+	}
+
+	@Transactional
+	public JobApplication scoreApplication(ClientProfile hirer, JobPost job, Long applicationId, Integer hirerScore, boolean hirerOverride,
+			String hirerNotes) {
+		if (!job.getClientProfile().getId().equals(hirer.getId())) {
+			throw new IllegalArgumentException("Not your job post");
+		}
+		JobApplication app = jobApplicationRepository.findById(applicationId).orElseThrow();
+		if (!app.getJobPost().getId().equals(job.getId())) {
+			throw new IllegalArgumentException("Application not found");
+		}
+		if (app.getStatus() != ApplicationStatus.APPLIED) {
+			throw new IllegalStateException("Cannot score");
+		}
+		if (hirerScore == null || hirerScore < 0 || hirerScore > 100) {
+			throw new IllegalArgumentException("Score must be 0-100");
+		}
+		Integer aiScore = app.getAiScore();
+		if (aiScore == null) {
+			aiScore = app.getWorkerProfile().getLatestSkillScore();
+		}
+		int finalScore = hirerOverride ? hirerScore : computeHybridScore(aiScore, hirerScore);
+		app.setHirerScore(hirerScore);
+		app.setHirerOverride(hirerOverride);
+		app.setFinalScore(finalScore);
+		app.setHirerNotes(StringUtils.hasText(hirerNotes) ? hirerNotes.trim() : null);
+		app.setScoredAt(Instant.now());
+		jobApplicationRepository.save(app);
+
+		WorkerProfile worker = app.getWorkerProfile();
+		worker.setFinalRatingScore(finalScore);
+		workerProfileRepository.save(worker);
+
+		notificationService.notify(worker.getUser(), NotificationType.APPLICATION_STATUS_CHANGED,
+				"Hirer review updated for " + job.getTitle(), "/worker/applications");
+		return app;
+	}
+
+	private static int computeHybridScore(Integer aiScore, Integer hirerScore) {
+		int ai = aiScore == null ? 70 : aiScore;
+		int h = hirerScore == null ? ai : hirerScore;
+		double v = ai * 0.6 + h * 0.4;
+		int out = (int) Math.round(v);
+		return Math.max(0, Math.min(100, out));
 	}
 
 	@Transactional
