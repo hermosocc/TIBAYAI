@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Client Dashboard - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4">
+	<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Client Dashboard</h3>
+			<div class="text-muted" th:text="${client.companyName}">Company</div>
+		</div>
+		<div class="d-flex gap-2">
+			<a class="btn btn-dark" th:href="@{/client/jobs/new}">Post Job</a>
+			<a class="btn btn-outline-dark" th:href="@{/client/matches}">Matches</a>
+		</div>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-lg-7">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<h5 class="fw-semibold mb-2">My Job Posts</h5>
+					<div class="list-group">
+						<a class="list-group-item list-group-item-action" th:each="j : ${jobs}" th:href="@{/client/jobs/{id}(id=${j.id})}">
+							<div class="d-flex w-100 justify-content-between">
+								<div class="fw-semibold" th:text="${j.title}">Title</div>
+								<span class="badge bg-secondary" th:text="${j.status}">OPEN</span>
+							</div>
+							<div class="small text-muted">
+								<span th:text="${j.city}">City</span>
+								<span class="mx-1">•</span>₱<span th:text="${j.budgetPhp}">0</span>
+								<span class="mx-1" th:if="${j.deadline != null}">•</span><span th:if="${j.deadline != null}" th:text="${j.deadline}"></span>
+							</div>
+						</a>
+						<div class="text-muted small" th:if="${#lists.isEmpty(jobs)}">No job posts yet.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<h5 class="fw-semibold mb-2">Recent Matches</h5>
+					<div class="list-group">
+						<a class="list-group-item list-group-item-action" th:each="m : ${matches}" th:href="@{/chat/{id}(id=${m.id})}">
+							<div class="fw-semibold" th:text="${m.jobPost.title}">Job</div>
+							<div class="small text-muted">
+								Worker: <span th:text="${m.workerProfile.fullName}">Name</span>
+							</div>
+						</a>
+						<div class="text-muted small" th:if="${#lists.isEmpty(matches)}">No matches yet.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>
+

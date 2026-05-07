@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Worker Dashboard - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4">
+	<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Worker Dashboard</h3>
+			<div class="text-muted" th:text="${worker.fullName}">Name</div>
+		</div>
+		<div class="d-flex gap-2">
+			<a class="btn btn-outline-dark" th:href="@{/worker/profile}">Profile</a>
+			<a class="btn btn-dark" th:href="@{/worker/verify}">Verify ID</a>
+			<a class="btn btn-warning" th:href="@{/worker/submission}">Upload Welding</a>
+			<a class="btn btn-outline-primary" th:href="@{/worker/matches}">Matches</a>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-3">
+		<div class="col-lg-4">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<div class="small text-muted">AI-assisted Identity Verification</div>
+					<div class="fw-semibold" th:text="${worker.idVerificationStatus}">PENDING</div>
+					<div class="small text-muted mt-2" th:text="${worker.idVerificationSummary}">Summary</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-4">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<div class="small text-muted">Latest Skill Score</div>
+					<div class="display-6 fw-bold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</div>
+					<div class="small text-muted">AI-assisted preliminary technical evaluation</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-4">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<div class="small text-muted">Location</div>
+					<div class="fw-semibold">
+						<span th:text="${worker.barangay}">Barangay</span>
+						<span th:text="${worker.city != null ? ', ' + worker.city : ''}"></span>
+					</div>
+					<div class="small text-muted">Jobs shown are prioritized near you (barangay → city)</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<h5 class="fw-semibold mb-2">Nearby Jobs</h5>
+	<div class="row g-3">
+		<div class="col-lg-6" th:each="j : ${jobs}">
+			<div class="card shadow-sm h-100">
+				<div class="card-body">
+					<div class="d-flex justify-content-between align-items-start">
+						<div>
+							<div class="fw-semibold" th:text="${j.title}">Job</div>
+							<div class="text-muted small" th:text="${j.specialization}">Spec</div>
+						</div>
+						<span class="badge bg-success" th:text="${j.status}">OPEN</span>
+					</div>
+					<div class="mt-2 small" th:text="${#strings.abbreviate(j.description, 160)}"></div>
+					<div class="mt-2 small text-muted">
+						<span th:text="${j.barangay}">Barangay</span><span th:text="${j.city != null ? ', ' + j.city : ''}"></span>
+						<span class="mx-1">•</span>
+						₱<span th:text="${j.budgetPhp}">0</span>
+						<span class="mx-1" th:if="${j.deadline != null}">•</span>
+						<span th:if="${j.deadline != null}" th:text="${j.deadline}"></span>
+					</div>
+					<a class="btn btn-outline-dark btn-sm mt-3" th:href="@{/worker/jobs/{id}(id=${j.id})}">View &amp; Apply</a>
+				</div>
+			</div>
+		</div>
+		<div class="col-12" th:if="${#lists.isEmpty(jobs)}">
+			<div class="alert alert-info">No jobs found yet. Update your barangay/city and try again later.</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>

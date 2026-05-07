@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Matches - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4">
+	<div class="d-flex justify-content-between align-items-end mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Matches</h3>
+			<div class="text-muted">Jobs where you were hired and connected to a client.</div>
+		</div>
+		<a class="btn btn-outline-dark" th:href="@{/worker/dashboard}">Back</a>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-lg-6" th:each="m : ${matches}">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<div class="fw-semibold" th:text="${m.jobPost.title}">Job</div>
+					<div class="small text-muted">
+						Client: <span th:text="${m.clientProfile.companyName}">Company</span>
+					</div>
+					<a class="btn btn-dark btn-sm mt-3" th:href="@{/chat/{id}(id=${m.id})}">Open Chat</a>
+				</div>
+			</div>
+		</div>
+		<div class="col-12" th:if="${#lists.isEmpty(matches)}">
+			<div class="alert alert-info">No matches yet. Apply to jobs to get hired.</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>
+

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Notifications - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4" style="max-width: 980px;">
+	<div class="d-flex justify-content-between align-items-end mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Notifications</h3>
+			<div class="text-muted">Application updates and chat alerts.</div>
+		</div>
+		<form method="post" th:action="@{/notifications/read-all}">
+			<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+			<button class="btn btn-outline-dark" type="submit">Mark all read</button>
+		</form>
+	</div>
+
+	<div class="list-group">
+		<div class="list-group-item" th:each="n : ${notifications}">
+			<div class="d-flex justify-content-between">
+				<div>
+					<div class="fw-semibold" th:text="${n.type}">TYPE</div>
+					<div class="small" th:text="${n.message}">Message</div>
+					<a class="small" th:if="${n.link != null}" th:href="${n.link}">Open</a>
+				</div>
+				<div class="small text-muted text-end">
+					<div th:text="${#temporals.format(n.createdAt, 'yyyy-MM-dd HH:mm')}"></div>
+					<div th:text="${n.readAt == null ? 'UNREAD' : 'READ'}"></div>
+				</div>
+			</div>
+		</div>
+		<div class="list-group-item text-muted" th:if="${#lists.isEmpty(notifications)}">No notifications.</div>
+	</div>
+</main>
+</body>
+</html>
