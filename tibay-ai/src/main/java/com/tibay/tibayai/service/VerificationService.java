@@ -3,7 +3,6 @@ package com.tibay.tibayai.service;
 import java.io.File;
 import java.util.Comparator;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +28,13 @@ public class VerificationService {
 	private final OcrSpaceClient ocrSpaceClient;
 	private final RoboflowClient roboflowClient;
 
+	private enum CheckResult {
+		PASS,
+		FAIL,
+		INCONCLUSIVE,
+		UNAVAILABLE
+	}
+
 	@Transactional
 	public GovernmentIdVerification verify(WorkerProfile workerProfile, String idImagePath, String selfiePath) {
 		File idFile = storageService.resolveAbsolute(idImagePath).toFile();
@@ -37,11 +43,21 @@ public class VerificationService {
 		boolean ocrEnabled = ocrSpaceClient.enabled();
 		boolean faceEnabled = roboflowClient.facesEnabled();
 
-		String ocrText = ocrEnabled ? ocrSpaceClient.extractText(idFile).orElse("") : "";
-		Boolean idLooksValid = ocrEnabled && StringUtils.hasText(ocrText) ? looksLikePhilippineId(ocrText) : null;
+		CheckResult ocrResult = CheckResult.UNAVAILABLE;
+		String ocrText = "";
+		if (ocrEnabled) {
+			ocrText = ocrSpaceClient.extractText(idFile).orElse("");
+			if (!StringUtils.hasText(ocrText)) {
+				ocrResult = CheckResult.INCONCLUSIVE;
+			} else if (looksLikePhilippineId(ocrText)) {
+				ocrResult = CheckResult.PASS;
+			} else {
+				ocrResult = CheckResult.FAIL;
+			}
+		}
 
 		Integer faceMatchScore = null;
-		Boolean faceOk = null;
+		CheckResult faceResult = faceEnabled ? CheckResult.INCONCLUSIVE : CheckResult.UNAVAILABLE;
 		if (faceEnabled) {
 			try {
 				var idFace = roboflowClient.detectFaces(idFile).stream()
@@ -61,50 +77,49 @@ public class VerificationService {
 					long h1 = ImageUtils.averageHash(idCrop);
 					long h2 = ImageUtils.averageHash(selfieCrop);
 					faceMatchScore = ImageUtils.similarityScore(h1, h2);
-					if (faceMatchScore >= 80) {
-						faceOk = true;
-					} else if (faceMatchScore <= 40) {
-						faceOk = false;
-					} else {
-						faceOk = null;
-					}
+					faceResult = faceMatchScore >= 80 ? CheckResult.PASS : CheckResult.FAIL;
+				} else {
+					faceResult = CheckResult.FAIL;
 				}
 			} catch (Exception e) {
-				faceOk = null;
+				faceResult = CheckResult.INCONCLUSIVE;
 			}
 		}
 
 		VerificationStatus status;
 		String summary;
-		if (Boolean.TRUE.equals(idLooksValid) && Boolean.TRUE.equals(faceOk)) {
+		if (ocrResult == CheckResult.PASS && faceResult == CheckResult.PASS) {
 			status = VerificationStatus.VERIFIED;
-			summary = "AI-assisted identity verification: VERIFIED. Checks passed: ID format appears valid; Face match confidence: HIGH; Identity consistency detected.";
-		} else if (Boolean.FALSE.equals(idLooksValid) && ocrEnabled) {
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: VERIFIED. ");
+			sb.append("Checks passed: OCR=PASS; FACE=PASS; ");
+			if (faceMatchScore != null) {
+				sb.append("Face match score: ").append(faceMatchScore).append("/100; ");
+			}
+			sb.append("Identity consistency detected.");
+			summary = sb.toString().trim();
+		} else if (ocrResult == CheckResult.FAIL || faceResult == CheckResult.FAIL) {
 			status = VerificationStatus.FAILED;
-			summary = "AI-assisted identity verification: FAILED. Reasons: Invalid ID format detected.";
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: FAILED. Reasons: ");
+			if (ocrResult == CheckResult.FAIL) {
+				sb.append("OCR check failed (ID text did not resemble a Philippine government ID). ");
+			}
+			if (faceResult == CheckResult.FAIL) {
+				if (faceMatchScore == null) {
+					sb.append("Face check failed (face not detected or mismatch). ");
+				} else {
+					sb.append("Face check failed (low similarity score: ").append(faceMatchScore).append("/100). ");
+				}
+			}
+			sb.append("This is not a legal verification.");
+			summary = sb.toString().trim();
 		} else {
 			status = VerificationStatus.REVIEW_REQUIRED;
-			StringBuilder sb = new StringBuilder("AI-assisted identity verification: REVIEW_REQUIRED. ");
-			sb.append("This is not a legal verification. ");
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: REVIEW_REQUIRED. This is not a legal verification. ");
 			sb.append("Checks: ");
-			if (!ocrEnabled) {
-				sb.append("OCR=UNAVAILABLE; ");
-			} else if (idLooksValid == null) {
-				sb.append("OCR=INCONCLUSIVE; ");
-			} else if (Boolean.TRUE.equals(idLooksValid)) {
-				sb.append("OCR=PASS; ");
-			} else {
-				sb.append("OCR=FAIL; ");
-			}
-
-			if (!faceEnabled) {
-				sb.append("FACE=UNAVAILABLE; ");
-			} else if (faceOk == null) {
-				sb.append("FACE=INCONCLUSIVE; ");
-			} else if (Boolean.TRUE.equals(faceOk)) {
-				sb.append("FACE=PASS; ");
-			} else {
-				sb.append("FACE=FAIL; ");
+			sb.append("OCR=").append(ocrResult).append("; ");
+			sb.append("FACE=").append(faceResult).append("; ");
+			if (faceMatchScore != null) {
+				sb.append("Face match score=").append(faceMatchScore).append("/100; ");
 			}
 			summary = sb.toString().trim();
 		}

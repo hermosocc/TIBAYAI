@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.tibay.tibayai.dto.ApplyForm;
 import com.tibay.tibayai.dto.PortfolioForm;
+import com.tibay.tibayai.entity.ApplicationStatus;
 import com.tibay.tibayai.entity.JobStatus;
 import com.tibay.tibayai.entity.MediaType;
 import com.tibay.tibayai.entity.VerificationStatus;
@@ -77,8 +78,10 @@ public class WorkerController {
 			String idPath = storageService.storeImage(govId, "worker/" + worker.getId() + "/id");
 			String selfiePath = storageService.storeImage(selfie, "worker/" + worker.getId() + "/selfie");
 			worker.setSelfiePath(selfiePath);
-			verificationService.verify(worker, idPath, selfiePath);
-			return "redirect:/worker/profile";
+			var verification = verificationService.verify(worker, idPath, selfiePath);
+			model.addAttribute("worker", worker);
+			model.addAttribute("verification", verification);
+			return "worker/verify-result";
 		} catch (IOException e) {
 			model.addAttribute("worker", worker);
 			model.addAttribute("error", e.getMessage());
@@ -136,8 +139,11 @@ public class WorkerController {
 		sub.setMediaPath(mediaPath);
 		weldingSubmissionRepository.save(sub);
 
-		assessmentService.assess(worker, sub);
-		return "redirect:/worker/profile";
+		var assessment = assessmentService.assess(worker, sub);
+		model.addAttribute("worker", worker);
+		model.addAttribute("submission", sub);
+		model.addAttribute("assessment", assessment);
+		return "worker/submission-result";
 	}
 
 	@GetMapping("/jobs/{jobId}")
@@ -146,7 +152,10 @@ public class WorkerController {
 		var job = jobPostRepository.findById(jobId).orElseThrow();
 		model.addAttribute("worker", worker);
 		model.addAttribute("job", job);
-		model.addAttribute("alreadyApplied", jobApplicationRepository.existsByJobPostIdAndWorkerProfileId(jobId, worker.getId()));
+		boolean alreadyApplied = jobApplicationRepository.findByJobPostIdAndWorkerProfileId(jobId, worker.getId())
+				.map(a -> a.getStatus() != ApplicationStatus.WITHDRAWN)
+				.orElse(false);
+		model.addAttribute("alreadyApplied", alreadyApplied);
 		model.addAttribute("form", new ApplyForm());
 		return "worker/job-view";
 	}
@@ -174,6 +183,20 @@ public class WorkerController {
 		model.addAttribute("worker", worker);
 		model.addAttribute("applications", jobApplicationRepository.findByWorkerProfileIdOrderByAppliedAtDesc(worker.getId()));
 		return "worker/applications";
+	}
+
+	@PostMapping("/applications/{applicationId}/withdraw")
+	public String withdrawApplication(@PathVariable Long applicationId, Model model) {
+		var worker = currentUserService.requireWorkerProfile();
+		try {
+			jobService.withdrawApplication(worker, applicationId);
+			return "redirect:/worker/applications";
+		} catch (RuntimeException e) {
+			model.addAttribute("worker", worker);
+			model.addAttribute("applications", jobApplicationRepository.findByWorkerProfileIdOrderByAppliedAtDesc(worker.getId()));
+			model.addAttribute("error", e.getMessage());
+			return "worker/applications";
+		}
 	}
 
 	@GetMapping("/matches")
