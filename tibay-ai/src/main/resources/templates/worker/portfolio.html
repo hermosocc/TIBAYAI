@@ -16,13 +16,14 @@
 		<div class="col-lg-6">
 			<div class="card shadow-sm">
 				<div class="card-body">
-					<form method="post" th:object="${form}">
+					<form id="portfolioForm" method="post" th:object="${form}">
 						<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 						<label class="form-label">Describe your work (Tagalog/Taglish is OK)</label>
 						<textarea class="form-control" rows="10" th:field="*{rawText}"
 								  placeholder="Example: Taga-ayos ako ng lamat sa barko. Nasa pier ako lagi nagwewelding."></textarea>
+						<textarea class="d-none" th:field="*{cvResults}"></textarea>
 						<div class="text-danger small" th:if="${#fields.hasErrors('rawText')}" th:errors="*{rawText}"></div>
-						<button class="btn btn-dark mt-3" type="submit">Generate Portfolio</button>
+						<button id="openGenerateDialog" class="btn btn-dark mt-3" type="button">Generate Portfolio</button>
 					</form>
 				</div>
 			</div>
@@ -41,6 +42,70 @@
 			</div>
 		</div>
 	</div>
+
+	<dialog id="portfolioDialog" style="max-width: 900px; width: calc(100% - 2rem); border: 0; border-radius: 12px; padding: 0;">
+		<div class="card shadow-sm mb-0">
+			<div class="card-body">
+				<div class="d-flex justify-content-between align-items-start">
+					<div>
+						<h5 class="fw-semibold mb-1">Portfolio Inputs</h5>
+						<div class="text-muted small">Add the worker description and optionally paste work evidence results.</div>
+					</div>
+					<button id="dialogCancel" type="button" class="btn btn-outline-dark btn-sm">Close</button>
+				</div>
+
+				<div class="mt-3">
+					<label class="form-label">Worker Description</label>
+					<textarea id="dialogRawText" class="form-control" rows="6" placeholder="Paste the worker’s description exactly as submitted."></textarea>
+					<div class="form-text">Required.</div>
+				</div>
+
+				<div class="mt-3">
+					<label class="form-label">Computer Vision / Work Evidence Results (Optional)</label>
+					<textarea id="dialogCvResults" class="form-control" rows="6" placeholder="Paste detection results, scores, or notes (JSON/text)."></textarea>
+					<div class="form-text">Optional. If left blank, the system will use the latest stored assessment (if available).</div>
+				</div>
+
+				<div class="d-flex justify-content-end gap-2 mt-3">
+					<button id="dialogGenerate" type="button" class="btn btn-dark">Generate</button>
+				</div>
+			</div>
+		</div>
+	</dialog>
 </main>
+
+<script>
+	const portfolioForm = document.getElementById('portfolioForm')
+	const openGenerateDialog = document.getElementById('openGenerateDialog')
+	const portfolioDialog = document.getElementById('portfolioDialog')
+	const dialogRawText = document.getElementById('dialogRawText')
+	const dialogCvResults = document.getElementById('dialogCvResults')
+	const dialogCancel = document.getElementById('dialogCancel')
+	const dialogGenerate = document.getElementById('dialogGenerate')
+	const rawText = document.getElementById('rawText')
+	const cvResults = document.getElementById('cvResults')
+
+	openGenerateDialog.addEventListener('click', () => {
+		dialogRawText.value = rawText.value || ''
+		dialogCvResults.value = cvResults.value || ''
+		portfolioDialog.showModal()
+	})
+
+	dialogCancel.addEventListener('click', () => {
+		portfolioDialog.close()
+	})
+
+	dialogGenerate.addEventListener('click', () => {
+		const raw = (dialogRawText.value || '').trim()
+		if (!raw) {
+			dialogRawText.focus()
+			return
+		}
+		rawText.value = dialogRawText.value
+		cvResults.value = dialogCvResults.value
+		portfolioDialog.close()
+		portfolioForm.submit()
+	})
+</script>
 </body>
 </html>

@@ -9,5 +9,7 @@ import lombok.Setter;
 public class PortfolioForm {
 	@Size(max = 1200)
 	private String rawText;
-}
 
+	@Size(max = 6000)
+	private String cvResults;
+}
