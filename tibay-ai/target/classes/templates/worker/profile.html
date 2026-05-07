@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Worker Profile - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4">
+	<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Worker Profile</h3>
+			<div class="text-muted" th:text="${worker.fullName}">Name</div>
+		</div>
+		<div class="d-flex gap-2">
+			<a class="btn btn-outline-dark" th:href="@{/worker/dashboard}">Dashboard</a>
+			<a class="btn btn-dark" th:href="@{/worker/verify}">Verify</a>
+			<a class="btn btn-warning" th:href="@{/worker/submission}">Upload Welding</a>
+			<a class="btn btn-outline-primary" th:href="@{/worker/portfolio}">Generate Portfolio</a>
+			<a class="btn btn-outline-primary" th:href="@{/worker/matches}">Matches</a>
+		</div>
+	</div>
+
+	<div class="row g-3">
+		<div class="col-lg-4">
+			<div class="card shadow-sm h-100">
+				<div class="card-body">
+					<div class="d-flex gap-3 align-items-center">
+						<img class="rounded-circle border" style="width:72px;height:72px;object-fit:cover;"
+							 th:if="${worker.selfiePath != null}" th:src="@{'/uploads/' + ${worker.selfiePath}}">
+						<div>
+							<div class="fw-semibold" th:text="${worker.fullName}">Name</div>
+							<div class="text-muted small">
+								<span th:text="${worker.barangay}">Barangay</span><span th:text="${worker.city != null ? ', ' + worker.city : ''}"></span>
+							</div>
+							<div class="small">Skill Score: <span class="fw-semibold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</span></div>
+						</div>
+					</div>
+					<hr class="my-3">
+					<div class="small text-muted">AI-assisted Identity Verification</div>
+					<div class="fw-semibold" th:text="${worker.idVerificationStatus}">PENDING</div>
+					<div class="small text-muted mt-2" th:text="${worker.idVerificationSummary}"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-8">
+			<div class="card shadow-sm h-100">
+				<div class="card-body">
+					<h5 class="fw-semibold">Latest AI Assessment</h5>
+					<div th:if="${latestAssessment == null}" class="alert alert-info mb-0">Upload a welding image/video to generate an AI-assisted assessment.</div>
+					<div th:if="${latestAssessment != null}">
+						<div class="row g-3">
+							<div class="col-md-6">
+								<div class="small text-muted">Authenticity</div>
+								<div class="fw-semibold" th:text="${latestAssessment.authenticityStatus}">PENDING</div>
+								<div class="small text-muted" th:text="${latestAssessment.authenticitySummary}"></div>
+							</div>
+							<div class="col-md-6">
+								<div class="small text-muted">Skill Score</div>
+								<div class="display-6 fw-bold" th:text="${latestAssessment.skillScore}">0</div>
+							</div>
+						</div>
+						<hr class="my-3">
+						<div class="small text-muted">Assessment Summary</div>
+						<div class="small" style="white-space: pre-wrap;" th:text="${latestAssessment.assessmentSummary}"></div>
+						<hr class="my-3">
+						<div class="small text-muted">Recommendations</div>
+						<div class="small" style="white-space: pre-wrap;" th:text="${latestAssessment.recommendations}"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mt-1">
+		<div class="col-12">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<h5 class="fw-semibold">ATS-ready Portfolio</h5>
+					<div th:if="${worker.atsPortfolio == null}" class="text-muted">Generate your portfolio from Tagalog/Taglish using the AI portfolio generator.</div>
+					<pre class="mb-0" th:if="${worker.atsPortfolio != null}" th:text="${worker.atsPortfolio}" style="white-space: pre-wrap;"></pre>
+				</div>
+			</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>

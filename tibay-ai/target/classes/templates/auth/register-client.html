@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Client Registration - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4" style="max-width: 820px;">
+	<div class="card shadow-sm">
+		<div class="card-body">
+			<h3 class="fw-bold mb-3">Client / Hirer Registration</h3>
+			<form method="post" th:object="${form}">
+				<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+				<div class="row g-3">
+					<div class="col-md-6">
+						<label class="form-label">Email</label>
+						<input class="form-control" type="email" th:field="*{email}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('email')}" th:errors="*{email}"></div>
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Password</label>
+						<input class="form-control" type="password" th:field="*{password}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Company Name</label>
+						<input class="form-control" th:field="*{companyName}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('companyName')}" th:errors="*{companyName}"></div>
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Contact Name</label>
+						<input class="form-control" th:field="*{contactName}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('contactName')}" th:errors="*{contactName}"></div>
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Phone</label>
+						<input class="form-control" th:field="*{phone}">
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Barangay</label>
+						<input class="form-control" th:field="*{barangay}">
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">City</label>
+						<input class="form-control" th:field="*{city}">
+					</div>
+				</div>
+				<button class="btn btn-dark mt-3" type="submit">Create Client Account</button>
+			</form>
+		</div>
+	</div>
+</main>
+</body>
+</html>

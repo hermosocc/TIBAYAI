@@ -63,9 +63,7 @@ public class DemoDataSeeder implements CommandLineRunner {
 		worker.setPhone("0908-000-0000");
 		worker.setBarangay("San Roque");
 		worker.setCity("Cebu City");
-		worker.setIdVerificationStatus(VerificationStatus.VERIFIED);
-		worker.setIdVerificationSummary(
-				"AI-assisted identity verification: VERIFIED (demo-seeded). This is not a legal verification.");
+		worker.setIdVerificationStatus(VerificationStatus.PENDING);
 		workerProfileRepository.save(worker);
 
 		jobPostRepository.save(buildJob(client, "Maritime Hull Repair Welder",
@@ -91,3 +89,4 @@ public class DemoDataSeeder implements CommandLineRunner {
 		return j;
 	}
 }
+

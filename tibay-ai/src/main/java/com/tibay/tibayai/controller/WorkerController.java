@@ -15,7 +15,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.tibay.tibayai.dto.ApplyForm;
 import com.tibay.tibayai.dto.PortfolioForm;
-import com.tibay.tibayai.entity.ApplicationStatus;
 import com.tibay.tibayai.entity.JobStatus;
 import com.tibay.tibayai.entity.MediaType;
 import com.tibay.tibayai.entity.VerificationStatus;
@@ -67,26 +66,19 @@ public class WorkerController {
 	}
 
 	@PostMapping("/verify")
-	public String verifySubmit(@RequestParam("govId") MultipartFile govId, @RequestParam("selfie") MultipartFile selfie, Model model) {
+	public String verifySubmit(@RequestParam("govId") MultipartFile govId, @RequestParam("selfie") MultipartFile selfie, Model model)
+			throws IOException {
 		var worker = currentUserService.requireWorkerProfile();
 		if (govId == null || govId.isEmpty() || selfie == null || selfie.isEmpty()) {
 			model.addAttribute("worker", worker);
 			model.addAttribute("error", "Government ID and selfie are required.");
 			return "worker/verify";
 		}
-		try {
-			String idPath = storageService.storeImage(govId, "worker/" + worker.getId() + "/id");
-			String selfiePath = storageService.storeImage(selfie, "worker/" + worker.getId() + "/selfie");
-			worker.setSelfiePath(selfiePath);
-			var verification = verificationService.verify(worker, idPath, selfiePath);
-			model.addAttribute("worker", worker);
-			model.addAttribute("verification", verification);
-			return "worker/verify-result";
-		} catch (IOException e) {
-			model.addAttribute("worker", worker);
-			model.addAttribute("error", e.getMessage());
-			return "worker/verify";
-		}
+		String idPath = storageService.store(govId, "worker/" + worker.getId() + "/id");
+		String selfiePath = storageService.store(selfie, "worker/" + worker.getId() + "/selfie");
+		worker.setSelfiePath(selfiePath);
+		verificationService.verify(worker, idPath, selfiePath);
+		return "redirect:/worker/profile";
 	}
 
 	@GetMapping("/profile")
@@ -113,7 +105,8 @@ public class WorkerController {
 	}
 
 	@PostMapping("/submission")
-	public String submissionSubmit(@RequestParam("media") MultipartFile media, @RequestParam("mediaType") String mediaType, Model model) {
+	public String submissionSubmit(@RequestParam("media") MultipartFile media, @RequestParam("mediaType") String mediaType, Model model)
+			throws IOException {
 		var worker = currentUserService.requireWorkerProfile();
 		if (worker.getIdVerificationStatus() != VerificationStatus.VERIFIED) {
 			return "redirect:/worker/verify";
@@ -124,14 +117,7 @@ public class WorkerController {
 			return "worker/submission";
 		}
 		MediaType mt = "VIDEO".equalsIgnoreCase(mediaType) ? MediaType.VIDEO : MediaType.IMAGE;
-		String mediaPath;
-		try {
-			mediaPath = storageService.storeImageOrVideo(media, "worker/" + worker.getId() + "/weld");
-		} catch (IOException e) {
-			model.addAttribute("worker", worker);
-			model.addAttribute("error", e.getMessage());
-			return "worker/submission";
-		}
+		String mediaPath = storageService.store(media, "worker/" + worker.getId() + "/weld");
 
 		WeldingSubmission sub = new WeldingSubmission();
 		sub.setWorkerProfile(worker);
@@ -139,11 +125,8 @@ public class WorkerController {
 		sub.setMediaPath(mediaPath);
 		weldingSubmissionRepository.save(sub);
 
-		var assessment = assessmentService.assess(worker, sub);
-		model.addAttribute("worker", worker);
-		model.addAttribute("submission", sub);
-		model.addAttribute("assessment", assessment);
-		return "worker/submission-result";
+		assessmentService.assess(worker, sub);
+		return "redirect:/worker/profile";
 	}
 
 	@GetMapping("/jobs/{jobId}")
@@ -152,10 +135,7 @@ public class WorkerController {
 		var job = jobPostRepository.findById(jobId).orElseThrow();
 		model.addAttribute("worker", worker);
 		model.addAttribute("job", job);
-		boolean alreadyApplied = jobApplicationRepository.findByJobPostIdAndWorkerProfileId(jobId, worker.getId())
-				.map(a -> a.getStatus() != ApplicationStatus.WITHDRAWN)
-				.orElse(false);
-		model.addAttribute("alreadyApplied", alreadyApplied);
+		model.addAttribute("alreadyApplied", jobApplicationRepository.existsByJobPostIdAndWorkerProfileId(jobId, worker.getId()));
 		model.addAttribute("form", new ApplyForm());
 		return "worker/job-view";
 	}
@@ -183,20 +163,6 @@ public class WorkerController {
 		model.addAttribute("worker", worker);
 		model.addAttribute("applications", jobApplicationRepository.findByWorkerProfileIdOrderByAppliedAtDesc(worker.getId()));
 		return "worker/applications";
-	}
-
-	@PostMapping("/applications/{applicationId}/withdraw")
-	public String withdrawApplication(@PathVariable Long applicationId, Model model) {
-		var worker = currentUserService.requireWorkerProfile();
-		try {
-			jobService.withdrawApplication(worker, applicationId);
-			return "redirect:/worker/applications";
-		} catch (RuntimeException e) {
-			model.addAttribute("worker", worker);
-			model.addAttribute("applications", jobApplicationRepository.findByWorkerProfileIdOrderByAppliedAtDesc(worker.getId()));
-			model.addAttribute("error", e.getMessage());
-			return "worker/applications";
-		}
 	}
 
 	@GetMapping("/matches")

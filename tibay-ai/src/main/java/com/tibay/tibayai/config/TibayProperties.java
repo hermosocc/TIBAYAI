@@ -20,4 +20,6 @@ public class TibayProperties {
 	private String roboflowApiKey;
 	private String roboflowPpeModelUrl;
 	private String roboflowFaceModelUrl;
+
+	private String insightfaceUrl;
 }

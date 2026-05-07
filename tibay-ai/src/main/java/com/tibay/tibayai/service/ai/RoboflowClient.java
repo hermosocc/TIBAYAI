@@ -30,15 +30,19 @@ public class RoboflowClient {
 	private final TibayProperties properties;
 
 	public boolean enabled() {
-		return facesEnabled() || ppeEnabled();
+		return StringUtils.hasText(properties.getRoboflowApiKey())
+				&& (StringUtils.hasText(properties.getRoboflowFaceModelUrl())
+						|| StringUtils.hasText(properties.getRoboflowPpeModelUrl()));
 	}
 
-	public boolean facesEnabled() {
-		return StringUtils.hasText(properties.getRoboflowApiKey()) && StringUtils.hasText(properties.getRoboflowFaceModelUrl());
+	public boolean faceEnabled() {
+		return StringUtils.hasText(properties.getRoboflowApiKey())
+				&& StringUtils.hasText(properties.getRoboflowFaceModelUrl());
 	}
 
 	public boolean ppeEnabled() {
-		return StringUtils.hasText(properties.getRoboflowApiKey()) && StringUtils.hasText(properties.getRoboflowPpeModelUrl());
+		return StringUtils.hasText(properties.getRoboflowApiKey())
+				&& StringUtils.hasText(properties.getRoboflowPpeModelUrl());
 	}
 
 	public List<Detection> detectFaces(File imageFile) {

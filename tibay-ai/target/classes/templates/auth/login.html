@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Login - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4" style="max-width: 520px;">
+	<div class="card shadow-sm">
+		<div class="card-body">
+			<h3 class="fw-bold mb-3">Login</h3>
+			<div class="alert alert-success" th:if="${param.registered}">Registration complete. Please login.</div>
+			<div class="alert alert-danger" th:if="${param.error}">Invalid credentials.</div>
+			<form method="post" th:action="@{/login}">
+				<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+				<div class="mb-3">
+					<label class="form-label">Email</label>
+					<input class="form-control" type="email" name="username" required>
+				</div>
+				<div class="mb-3">
+					<label class="form-label">Password</label>
+					<input class="form-control" type="password" name="password" required>
+				</div>
+				<button class="btn btn-dark w-100" type="submit">Login</button>
+			</form>
+			<hr class="my-3">
+			<div class="d-flex gap-2">
+				<a class="btn btn-outline-dark w-50" th:href="@{/register/worker}">Worker Register</a>
+				<a class="btn btn-outline-dark w-50" th:href="@{/register/client}">Client Register</a>
+			</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>

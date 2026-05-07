@@ -70,43 +70,6 @@ public class ClientController {
 		return "redirect:/client/dashboard";
 	}
 
-	@GetMapping("/jobs/{jobId}/edit")
-	public String jobEdit(@PathVariable Long jobId, Model model) {
-		var client = currentUserService.requireClientProfile();
-		var job = jobPostRepository.findById(jobId).orElseThrow();
-		if (!job.getClientProfile().getId().equals(client.getId())) {
-			return "redirect:/client/dashboard";
-		}
-		JobPostForm form = new JobPostForm();
-		form.setTitle(job.getTitle());
-		form.setDescription(job.getDescription());
-		form.setSpecialization(job.getSpecialization());
-		form.setBudgetPhp(job.getBudgetPhp());
-		form.setDeadline(job.getDeadline());
-		form.setBarangay(job.getBarangay());
-		form.setCity(job.getCity());
-		model.addAttribute("client", client);
-		model.addAttribute("job", job);
-		model.addAttribute("form", form);
-		return "client/job-edit";
-	}
-
-	@PostMapping("/jobs/{jobId}/edit")
-	public String jobEditSubmit(@PathVariable Long jobId, @Valid @ModelAttribute("form") JobPostForm form, BindingResult br, Model model) {
-		var client = currentUserService.requireClientProfile();
-		var job = jobPostRepository.findById(jobId).orElseThrow();
-		if (!job.getClientProfile().getId().equals(client.getId())) {
-			return "redirect:/client/dashboard";
-		}
-		model.addAttribute("client", client);
-		model.addAttribute("job", job);
-		if (br.hasErrors()) {
-			return "client/job-edit";
-		}
-		jobService.updateJob(client, job, form);
-		return "redirect:/client/jobs/" + jobId;
-	}
-
 	@GetMapping("/jobs/{jobId}")
 	public String jobView(@PathVariable Long jobId, Model model) {
 		var client = currentUserService.requireClientProfile();
@@ -120,35 +83,11 @@ public class ClientController {
 		return "client/job-view";
 	}
 
-	@PostMapping("/jobs/{jobId}/delete")
-	public String jobDelete(@PathVariable Long jobId, Model model) {
-		var client = currentUserService.requireClientProfile();
-		var job = jobPostRepository.findById(jobId).orElseThrow();
-		try {
-			jobService.deleteJob(client, job);
-			return "redirect:/client/dashboard";
-		} catch (RuntimeException e) {
-			model.addAttribute("client", client);
-			model.addAttribute("job", job);
-			model.addAttribute("applications", jobApplicationRepository.findByJobPostIdOrderByAppliedAtDesc(jobId));
-			model.addAttribute("error", "Unable to delete job post: " + e.getMessage());
-			return "client/job-view";
-		}
-	}
-
 	@PostMapping("/jobs/{jobId}/hire")
 	public String hire(@PathVariable Long jobId, @RequestParam("applicationId") Long applicationId) {
 		var client = currentUserService.requireClientProfile();
 		var job = jobPostRepository.findById(jobId).orElseThrow();
 		jobService.hire(client, job, applicationId);
-		return "redirect:/client/jobs/" + jobId;
-	}
-
-	@PostMapping("/jobs/{jobId}/applications/{applicationId}/reject")
-	public String reject(@PathVariable Long jobId, @PathVariable Long applicationId) {
-		var client = currentUserService.requireClientProfile();
-		var job = jobPostRepository.findById(jobId).orElseThrow();
-		jobService.rejectApplication(client, job, applicationId);
 		return "redirect:/client/jobs/" + jobId;
 	}
 
@@ -169,3 +108,4 @@ public class ClientController {
 		return "client/matches";
 	}
 }
+
