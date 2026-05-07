@@ -37,6 +37,19 @@ public class JobApplication {
 	@Column(length = 1200)
 	private String coverNote;
 
+	private Integer aiScore;
+
+	private Integer hirerScore;
+
+	private Integer finalScore;
+
+	private Boolean hirerOverride;
+
+	@Column(length = 800)
+	private String hirerNotes;
+
+	private Instant scoredAt;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private ApplicationStatus status;
@@ -54,4 +67,3 @@ public class JobApplication {
 		}
 	}
 }
-

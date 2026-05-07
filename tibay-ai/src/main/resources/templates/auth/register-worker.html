@@ -27,15 +27,18 @@
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">Phone</label>
-						<input class="form-control" th:field="*{phone}">
+						<input class="form-control" th:field="*{phone}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"></div>
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">Barangay</label>
-						<input class="form-control" th:field="*{barangay}">
+						<input class="form-control" th:field="*{barangay}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('barangay')}" th:errors="*{barangay}"></div>
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">City</label>
-						<input class="form-control" th:field="*{city}">
+						<input class="form-control" th:field="*{city}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></div>
 					</div>
 				</div>
 				<button class="btn btn-dark mt-3" type="submit">Create Worker Account</button>

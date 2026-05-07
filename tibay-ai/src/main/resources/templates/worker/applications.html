@@ -11,6 +11,9 @@
 		</div>
 		<a class="btn btn-outline-dark" th:href="@{/worker/dashboard}">Back</a>
 	</div>
+
+	<div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
 	<div class="row g-3">
 		<div class="col-lg-6" th:each="a : ${applications}">
 			<div class="card shadow-sm">
@@ -25,9 +28,19 @@
 					<div class="small text-muted mt-2">
 						Applied: <span th:text="${#temporals.format(a.appliedAt, 'yyyy-MM-dd HH:mm')}"></span>
 					</div>
+					<div class="small text-muted mt-1">
+						AI Score: <span class="fw-semibold" th:text="${a.aiScore != null ? a.aiScore : '--'}">--</span>
+						<span class="mx-1">•</span>
+						Final Rating: <span class="fw-semibold" th:text="${a.finalScore != null ? a.finalScore : '--'}">--</span>
+					</div>
 					<div class="small mt-2" th:if="${a.coverNote != null}" th:text="${#strings.abbreviate(a.coverNote, 160)}"></div>
 					<div class="d-flex gap-2 mt-3">
 						<a class="btn btn-outline-dark btn-sm" th:href="@{/worker/jobs/{id}(id=${a.jobPost.id})}">View Job</a>
+						<form method="post" th:if="${a.status.name() == 'APPLIED'}" th:action="@{/worker/applications/{id}/withdraw(id=${a.id})}">
+							<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+							<button class="btn btn-outline-danger btn-sm" type="submit"
+									onclick="return confirm('Withdraw this application?');">Withdraw</button>
+						</form>
 					</div>
 				</div>
 			</div>
@@ -39,4 +52,3 @@
 </main>
 </body>
 </html>
-

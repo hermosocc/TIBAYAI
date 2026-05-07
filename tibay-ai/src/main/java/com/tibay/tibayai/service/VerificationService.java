@@ -3,7 +3,6 @@ package com.tibay.tibayai.service;
 import java.io.File;
 import java.util.Comparator;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,53 +28,98 @@ public class VerificationService {
 	private final OcrSpaceClient ocrSpaceClient;
 	private final RoboflowClient roboflowClient;
 
+	private enum CheckResult {
+		PASS,
+		FAIL,
+		INCONCLUSIVE,
+		UNAVAILABLE
+	}
+
 	@Transactional
 	public GovernmentIdVerification verify(WorkerProfile workerProfile, String idImagePath, String selfiePath) {
 		File idFile = storageService.resolveAbsolute(idImagePath).toFile();
 		File selfieFile = storageService.resolveAbsolute(selfiePath).toFile();
 
-		String ocrText = ocrSpaceClient.extractText(idFile).orElse("");
-		boolean idLooksValid = looksLikePhilippineId(ocrText);
+		boolean ocrEnabled = ocrSpaceClient.enabled();
+		boolean faceEnabled = roboflowClient.facesEnabled();
+
+		CheckResult ocrResult = CheckResult.UNAVAILABLE;
+		String ocrText = "";
+		if (ocrEnabled) {
+			ocrText = ocrSpaceClient.extractText(idFile).orElse("");
+			if (!StringUtils.hasText(ocrText)) {
+				ocrResult = CheckResult.INCONCLUSIVE;
+			} else if (looksLikePhilippineId(ocrText)) {
+				ocrResult = CheckResult.PASS;
+			} else {
+				ocrResult = CheckResult.FAIL;
+			}
+		}
 
 		Integer faceMatchScore = null;
-		boolean faceOk = false;
-		try {
-			var idFace = roboflowClient.detectFaces(idFile).stream()
-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
-					.orElse(null);
-			var selfieFace = roboflowClient.detectFaces(selfieFile).stream()
-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
-					.orElse(null);
+		CheckResult faceResult = faceEnabled ? CheckResult.INCONCLUSIVE : CheckResult.UNAVAILABLE;
+		if (faceEnabled) {
+			try {
+				var idFace = roboflowClient.detectFaces(idFile).stream()
+						.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
+						.orElse(null);
+				var selfieFace = roboflowClient.detectFaces(selfieFile).stream()
+						.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
+						.orElse(null);
 
-			if (idFace != null && selfieFace != null) {
-				var idImg = ImageUtils.read(idFile);
-				var selfieImg = ImageUtils.read(selfieFile);
+				if (idFace != null && selfieFace != null) {
+					var idImg = ImageUtils.read(idFile);
+					var selfieImg = ImageUtils.read(selfieFile);
 
-				var idCrop = cropFromCenterBox(idImg, idFace);
-				var selfieCrop = cropFromCenterBox(selfieImg, selfieFace);
+					var idCrop = cropFromCenterBox(idImg, idFace);
+					var selfieCrop = cropFromCenterBox(selfieImg, selfieFace);
 
-				long h1 = ImageUtils.averageHash(idCrop);
-				long h2 = ImageUtils.averageHash(selfieCrop);
-				faceMatchScore = ImageUtils.similarityScore(h1, h2);
-				faceOk = faceMatchScore >= 80;
+					long h1 = ImageUtils.averageHash(idCrop);
+					long h2 = ImageUtils.averageHash(selfieCrop);
+					faceMatchScore = ImageUtils.similarityScore(h1, h2);
+					faceResult = faceMatchScore >= 80 ? CheckResult.PASS : CheckResult.FAIL;
+				} else {
+					faceResult = CheckResult.FAIL;
+				}
+			} catch (Exception e) {
+				faceResult = CheckResult.INCONCLUSIVE;
 			}
-		} catch (Exception e) {
-			faceOk = false;
 		}
 
 		VerificationStatus status;
 		String summary;
-		if (idLooksValid && faceOk) {
+		if (ocrResult == CheckResult.PASS && faceResult == CheckResult.PASS) {
 			status = VerificationStatus.VERIFIED;
-			summary = "AI-assisted identity verification: VERIFIED. Checks passed: ID format appears valid; Face match confidence: HIGH; Identity consistency detected.";
-		} else {
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: VERIFIED. ");
+			sb.append("Checks passed: OCR=PASS; FACE=PASS; ");
+			if (faceMatchScore != null) {
+				sb.append("Face match score: ").append(faceMatchScore).append("/100; ");
+			}
+			sb.append("Identity consistency detected.");
+			summary = sb.toString().trim();
+		} else if (ocrResult == CheckResult.FAIL || faceResult == CheckResult.FAIL) {
 			status = VerificationStatus.FAILED;
 			StringBuilder sb = new StringBuilder("AI-assisted identity verification: FAILED. Reasons: ");
-			if (!idLooksValid) {
-				sb.append("Invalid ID format detected. ");
+			if (ocrResult == CheckResult.FAIL) {
+				sb.append("OCR check failed (ID text did not resemble a Philippine government ID). ");
 			}
-			if (!faceOk) {
-				sb.append("Face mismatch or face not detected. ");
+			if (faceResult == CheckResult.FAIL) {
+				if (faceMatchScore == null) {
+					sb.append("Face check failed (face not detected or mismatch). ");
+				} else {
+					sb.append("Face check failed (low similarity score: ").append(faceMatchScore).append("/100). ");
+				}
+			}
+			sb.append("This is not a legal verification.");
+			summary = sb.toString().trim();
+		} else {
+			status = VerificationStatus.REVIEW_REQUIRED;
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: REVIEW_REQUIRED. This is not a legal verification. ");
+			sb.append("Checks: ");
+			sb.append("OCR=").append(ocrResult).append("; ");
+			sb.append("FACE=").append(faceResult).append("; ");
+			if (faceMatchScore != null) {
+				sb.append("Face match score=").append(faceMatchScore).append("/100; ");
 			}
 			summary = sb.toString().trim();
 		}
@@ -114,14 +158,16 @@ public class VerificationService {
 
 	private static java.awt.image.BufferedImage cropFromCenterBox(java.awt.image.BufferedImage img,
 			RoboflowClient.Detection det) {
-		int x1 = det.x() - det.width() / 2;
-		int y1 = det.y() - det.height() / 2;
-		return ImageUtils.crop(img, x1, y1, det.width(), det.height());
+		int w = Math.max(1, det.width());
+		int h = Math.max(1, det.height());
+		int x1 = det.x() - w / 2;
+		int y1 = det.y() - h / 2;
+		return ImageUtils.crop(img, x1, y1, w, h);
 	}
 
 	private static String truncate(String s, int max) {
 		if (s == null) {
-			return null;
+			return "";
 		}
 		if (s.length() <= max) {
 			return s;
@@ -129,4 +175,3 @@ public class VerificationService {
 		return s.substring(0, max);
 	}
 }
-

@@ -30,9 +30,15 @@ public class RoboflowClient {
 	private final TibayProperties properties;
 
 	public boolean enabled() {
-		return StringUtils.hasText(properties.getRoboflowApiKey())
-				&& (StringUtils.hasText(properties.getRoboflowFaceModelUrl())
-						|| StringUtils.hasText(properties.getRoboflowPpeModelUrl()));
+		return facesEnabled() || ppeEnabled();
+	}
+
+	public boolean facesEnabled() {
+		return StringUtils.hasText(properties.getRoboflowApiKey()) && StringUtils.hasText(properties.getRoboflowFaceModelUrl());
+	}
+
+	public boolean ppeEnabled() {
+		return StringUtils.hasText(properties.getRoboflowApiKey()) && StringUtils.hasText(properties.getRoboflowPpeModelUrl());
 	}
 
 	public List<Detection> detectFaces(File imageFile) {
@@ -97,4 +103,3 @@ public class RoboflowClient {
 		}
 	}
 }
-

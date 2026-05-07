@@ -30,9 +30,9 @@
 		<div class="col-lg-4">
 			<div class="card shadow-sm">
 				<div class="card-body">
-					<div class="small text-muted">Latest Skill Score</div>
+					<div class="small text-muted">AI Score</div>
 					<div class="display-6 fw-bold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</div>
-					<div class="small text-muted">AI-assisted preliminary technical evaluation</div>
+					<div class="small text-muted">Final Rating: <span class="fw-semibold" th:text="${worker.finalRatingScore != null ? worker.finalRatingScore : '--'}">--</span></div>
 				</div>
 			</div>
 		</div>

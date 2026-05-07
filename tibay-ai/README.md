@@ -18,7 +18,7 @@ This prototype is explicitly **not** an official verification or certification s
 
 ```bash
 cd tibay-ai
-./mvnw spring-boot:run
+bash ./mvnw spring-boot:run
 ```
 
 Open:
@@ -27,7 +27,7 @@ Open:
 
 Demo accounts (auto-seeded on first run if database is empty):
 
-- Client: `client@demo.com` / `demo1234`
+- Hirer: `client@demo.com` / `demo1234`
 - Worker: `worker@demo.com` / `demo1234`
 
 ## MySQL Run
@@ -42,7 +42,7 @@ export MYSQL_DB=tibay_ai
 export MYSQL_USER=root
 export MYSQL_PASSWORD=your_password
 
-./mvnw spring-boot:run -Dspring-boot.run.profiles=mysql
+bash ./mvnw spring-boot:run -Dspring-boot.run.profiles=mysql
 ```
 
 ## AI Integrations (Optional)
@@ -77,6 +77,5 @@ Roboflow hosted endpoints normally accept a multipart form upload field named `f
 1. Login as Worker → `Verify ID` → upload Government ID + Selfie
 2. Upload welding image/video → AI-assisted assessment + authenticity screening
 3. Generate portfolio → paste Tagalog/Taglish worker notes → ATS English output
-4. Login as Client → post job → review applicants → Hire → match created
+4. Login as Hirer → post job → review applicants → Hire → match created
 5. Open chat → send messages → notifications appear
-

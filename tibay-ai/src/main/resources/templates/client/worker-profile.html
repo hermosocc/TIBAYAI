@@ -7,7 +7,7 @@
 	<div class="d-flex justify-content-between align-items-end mb-3">
 		<div>
 			<h3 class="fw-bold mb-0">Worker Profile</h3>
-			<div class="text-muted">Recruiter view (AI-assisted summaries)</div>
+			<div class="text-muted">Hirer view (AI-assisted summaries)</div>
 		</div>
 		<a class="btn btn-outline-dark" href="javascript:history.back()">Back</a>
 	</div>
@@ -23,7 +23,9 @@
 						<span th:text="${worker.barangay}">Barangay</span><span th:text="${worker.city != null ? ', ' + worker.city : ''}"></span>
 					</div>
 					<div class="small">
-						Skill Score: <span class="fw-semibold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</span>
+						AI Score: <span class="fw-semibold" th:text="${worker.latestSkillScore != null ? worker.latestSkillScore : '--'}">--</span>
+						<span class="mx-1">•</span>
+						Final Rating: <span class="fw-semibold" th:text="${worker.finalRatingScore != null ? worker.finalRatingScore : '--'}">--</span>
 						<span class="mx-1">•</span>
 						ID Status: <span class="fw-semibold" th:text="${worker.idVerificationStatus}">PENDING</span>
 					</div>
@@ -41,4 +43,3 @@
 </main>
 </body>
 </html>
-
