@@ -35,6 +35,16 @@ public class RoboflowClient {
 						|| StringUtils.hasText(properties.getRoboflowPpeModelUrl()));
 	}
 
+	public boolean faceEnabled() {
+		return StringUtils.hasText(properties.getRoboflowApiKey())
+				&& StringUtils.hasText(properties.getRoboflowFaceModelUrl());
+	}
+
+	public boolean ppeEnabled() {
+		return StringUtils.hasText(properties.getRoboflowApiKey())
+				&& StringUtils.hasText(properties.getRoboflowPpeModelUrl());
+	}
+
 	public List<Detection> detectFaces(File imageFile) {
 		return detect(imageFile, properties.getRoboflowFaceModelUrl());
 	}
@@ -97,4 +107,3 @@ public class RoboflowClient {
 		}
 	}
 }
-

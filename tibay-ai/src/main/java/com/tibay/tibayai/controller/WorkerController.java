@@ -177,7 +177,12 @@ public class WorkerController {
 	public String portfolioForm(Model model) {
 		var worker = currentUserService.requireWorkerProfile();
 		model.addAttribute("worker", worker);
+		var subs = weldingSubmissionRepository.findTop10ByWorkerProfileIdOrderBySubmittedAtDesc(worker.getId());
+		var assessment = !subs.isEmpty() ? aiAssessmentRepository.findBySubmissionId(subs.get(0).getId()).orElse(null) : null;
 		PortfolioForm form = new PortfolioForm();
+		if (assessment != null) {
+			form.setCvResults(assessment.getAssessmentSummary());
+		}
 		model.addAttribute("form", form);
 		return "worker/portfolio";
 	}
@@ -191,7 +196,7 @@ public class WorkerController {
 		}
 		var subs = weldingSubmissionRepository.findTop10ByWorkerProfileIdOrderBySubmittedAtDesc(worker.getId());
 		var assessment = !subs.isEmpty() ? aiAssessmentRepository.findBySubmissionId(subs.get(0).getId()).orElse(null) : null;
-		String portfolio = portfolioService.generateAndSave(worker, form.getRawText(), assessment);
+		String portfolio = portfolioService.generateAndSave(worker, form.getRawText(), assessment, form.getCvResults());
 		model.addAttribute("portfolioGenerated", true);
 		model.addAttribute("portfolio", portfolio);
 		return "worker/portfolio";

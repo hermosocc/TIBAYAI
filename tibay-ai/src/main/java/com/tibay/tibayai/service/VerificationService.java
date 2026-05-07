@@ -1,9 +1,7 @@
 package com.tibay.tibayai.service;
 
 import java.io.File;
-import java.util.Comparator;
 import java.util.Locale;
-import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,9 +12,8 @@ import com.tibay.tibayai.entity.VerificationStatus;
 import com.tibay.tibayai.entity.WorkerProfile;
 import com.tibay.tibayai.repo.GovernmentIdVerificationRepository;
 import com.tibay.tibayai.repo.WorkerProfileRepository;
+import com.tibay.tibayai.service.ai.InsightFaceClient;
 import com.tibay.tibayai.service.ai.OcrSpaceClient;
-import com.tibay.tibayai.service.ai.RoboflowClient;
-import com.tibay.tibayai.util.ImageUtils;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +24,7 @@ public class VerificationService {
 	private final WorkerProfileRepository workerProfileRepository;
 	private final StorageService storageService;
 	private final OcrSpaceClient ocrSpaceClient;
-	private final RoboflowClient roboflowClient;
+	private final InsightFaceClient insightFaceClient;
 
 	@Transactional
 	public GovernmentIdVerification verify(WorkerProfile workerProfile, String idImagePath, String selfiePath) {
@@ -35,48 +32,47 @@ public class VerificationService {
 		File selfieFile = storageService.resolveAbsolute(selfiePath).toFile();
 
 		String ocrText = ocrSpaceClient.extractText(idFile).orElse("");
-		boolean idLooksValid = looksLikePhilippineId(ocrText);
+		boolean ocrConfigured = ocrSpaceClient.enabled();
+		boolean idLooksValid = !ocrConfigured || looksLikePhilippineId(ocrText);
 
-		Integer faceMatchScore = null;
-		boolean faceOk = false;
+		Double faceMatchScore = null;
+		boolean faceUnavailable = true;
+		boolean faceMismatch = false;
 		try {
-			var idFace = roboflowClient.detectFaces(idFile).stream()
-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
-					.orElse(null);
-			var selfieFace = roboflowClient.detectFaces(selfieFile).stream()
-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
-					.orElse(null);
-
-			if (idFace != null && selfieFace != null) {
-				var idImg = ImageUtils.read(idFile);
-				var selfieImg = ImageUtils.read(selfieFile);
-
-				var idCrop = cropFromCenterBox(idImg, idFace);
-				var selfieCrop = cropFromCenterBox(selfieImg, selfieFace);
-
-				long h1 = ImageUtils.averageHash(idCrop);
-				long h2 = ImageUtils.averageHash(selfieCrop);
-				faceMatchScore = ImageUtils.similarityScore(h1, h2);
-				faceOk = faceMatchScore >= 80;
+			var match = insightFaceClient.match(idFile, selfieFile).orElse(null);
+			if (match != null) {
+				faceUnavailable = false;
+				faceMatchScore = Math.max(0.0, Math.min(1.0, match.score()));
+				faceMismatch = !match.samePerson();
 			}
 		} catch (Exception e) {
-			faceOk = false;
+			faceUnavailable = true;
 		}
 
 		VerificationStatus status;
 		String summary;
-		if (idLooksValid && faceOk) {
-			status = VerificationStatus.VERIFIED;
-			summary = "AI-assisted identity verification: VERIFIED. Checks passed: ID format appears valid; Face match confidence: HIGH; Identity consistency detected.";
-		} else {
+		if (!idLooksValid || faceUnavailable || faceMismatch) {
 			status = VerificationStatus.FAILED;
 			StringBuilder sb = new StringBuilder("AI-assisted identity verification: FAILED. Reasons: ");
 			if (!idLooksValid) {
 				sb.append("Invalid ID format detected. ");
 			}
-			if (!faceOk) {
-				sb.append("Face mismatch or face not detected. ");
+			if (faceUnavailable) {
+				sb.append("Face check unavailable. ");
+			} else if (faceMismatch) {
+				sb.append("Face mismatch detected. ");
 			}
+			summary = sb.toString().trim();
+		} else {
+			status = VerificationStatus.VERIFIED;
+			StringBuilder sb = new StringBuilder("AI-assisted identity verification: VERIFIED. ");
+			if (ocrConfigured) {
+				sb.append("ID format appears valid. ");
+			} else {
+				sb.append("ID text check unavailable (OCR not configured or no text extracted). ");
+			}
+			sb.append("Face match score: ").append(String.format(Locale.ROOT, "%.2f", faceMatchScore)).append(". ");
+			sb.append("This is not a legal verification.");
 			summary = sb.toString().trim();
 		}
 
@@ -84,7 +80,7 @@ public class VerificationService {
 		v.setWorkerProfile(workerProfile);
 		v.setIdImagePath(idImagePath);
 		v.setOcrText(truncate(ocrText, 4000));
-		v.setFaceMatchScore(faceMatchScore);
+		v.setFaceMatchScore(faceMatchScore == null ? null : (int) Math.round(faceMatchScore * 100.0));
 		v.setStatus(status);
 		v.setSummary(truncate(summary, 1200));
 		verificationRepository.save(v);
@@ -112,13 +108,6 @@ public class VerificationService {
 				|| t.contains("tin");
 	}
 
-	private static java.awt.image.BufferedImage cropFromCenterBox(java.awt.image.BufferedImage img,
-			RoboflowClient.Detection det) {
-		int x1 = det.x() - det.width() / 2;
-		int y1 = det.y() - det.height() / 2;
-		return ImageUtils.crop(img, x1, y1, det.width(), det.height());
-	}
-
 	private static String truncate(String s, int max) {
 		if (s == null) {
 			return null;
@@ -129,4 +118,3 @@ public class VerificationService {
 		return s.substring(0, max);
 	}
 }
-

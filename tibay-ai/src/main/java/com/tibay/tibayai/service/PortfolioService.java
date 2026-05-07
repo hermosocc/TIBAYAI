@@ -22,68 +22,138 @@ public class PortfolioService {
 	private final WorkerProfileRepository workerProfileRepository;
 
 	@Transactional
-	public String generateAndSave(WorkerProfile workerProfile, String rawTaglishText, AiAssessment assessment) {
-		String portfolio = generate(rawTaglishText, workerProfile, assessment);
+	public String generateAndSave(WorkerProfile workerProfile, String rawTaglishText, AiAssessment assessment, String cvResults) {
+		String portfolio = generate(rawTaglishText, workerProfile, assessment, cvResults);
 		workerProfile.setAtsPortfolio(portfolio);
 		workerProfileRepository.save(workerProfile);
 		return portfolio;
 	}
 
-	public String generate(String rawTaglishText, WorkerProfile workerProfile, AiAssessment assessment) {
+	public String generate(String rawTaglishText, WorkerProfile workerProfile, AiAssessment assessment, String cvResults) {
 		String raw = StringUtils.hasText(rawTaglishText) ? rawTaglishText.trim() : "";
+		String cv = StringUtils.hasText(cvResults) ? cvResults.trim() : "";
 		String assessmentSummary = assessment != null ? safe(assessment.getAssessmentSummary()) : "";
 		Integer score = assessment != null ? assessment.getSkillScore() : workerProfile.getLatestSkillScore();
+		String ppe = assessment != null ? safe(assessment.getPpeCompliance()) : "";
+		String stability = assessment != null ? safe(assessment.getWeldingStability()) : "";
+		String straightness = assessment != null ? safe(assessment.getWeldLineStraightness()) : "";
 
 		if (openRouterClient.enabled()) {
 			String systemPrompt = """
-					You are TIBAY AI. Convert informal Filipino/Tagalog/Taglish worker statements into recruiter-ready English.
-					Output must be ATS-optimized for industrial welding roles (maritime, ship repair, offshore energy, structural welding).
-					Never claim certifications you don't know. Never mention "AI" inside the portfolio.
-					Format exactly with headings:
-					PROFESSIONAL SUMMARY
-					CORE SKILLS
-					WORK EXPERIENCE (BULLETS)
-					INDUSTRY KEYWORDS
+					You evaluate informal worker submissions and generate professional, structured outputs for hiring platforms.
+
+					Write in clear, professional English. Be realistic and evidence-based. Do not exaggerate.
+					Never claim certifications you don't know. Never mention "AI" in the output.
+					If data is incomplete, make reasonable assumptions and state them briefly.
+
+					Output format must be exactly:
+
+					[WORKER PORTFOLIO]
+
+					Professional Summary:
+					- <2–3 concise sentences>
+
+					Key Skills:
+					- <4–6 skills>
+
+					Work Evidence Insights:
+					- PPE Compliance: <High/Medium/Low + short explanation>
+					- Stability: <evaluation + short explanation>
+					- Precision: <evaluation + short explanation>
+					- Consistency: <evaluation + short explanation>
+
+					Skill Indicators (Pre-Score):
+					- Safety Awareness: <0–100>
+					- Technical Skill: <0–100>
+					- Work Consistency: <0–100>
+
+					Overall Hireability:
+					- <1–2 sentences>
 					""";
 			String userPrompt = """
 					Worker location: %s, %s
-					Worker notes (Tagalog/Taglish/slang): %s
-					Latest AI-assisted assessment signals (for context only): %s
-					Latest skill score (context): %s
-					Generate the portfolio now.
+					Worker description (informal): %s
+
+					Computer vision / work evidence results (raw): %s
+
+					Stored visual signals (if available):
+					- PPE: %s
+					- Stability: %s
+					- Weld line straightness: %s
+					- Summary: %s
+					- Skill score (0–100): %s
+
+					Interpret work evidence to assess PPE compliance, stability, precision, and consistency.
+					Combine both text and visual insights to infer welding skills. Generate the portfolio now.
 					"""
-					.formatted(safe(workerProfile.getBarangay()), safe(workerProfile.getCity()), raw, assessmentSummary,
-							score == null ? "" : (score + "/100"));
-			return openRouterClient.chat(systemPrompt, userPrompt).map(s -> truncate(s, 4000)).orElseGet(() -> fallback(raw, score));
+					.formatted(
+							safe(workerProfile.getBarangay()),
+							safe(workerProfile.getCity()),
+							raw,
+							StringUtils.hasText(cv) ? cv : "(not provided)",
+							StringUtils.hasText(ppe) ? ppe : "(not available)",
+							StringUtils.hasText(stability) ? stability : "(not available)",
+							StringUtils.hasText(straightness) ? straightness : "(not available)",
+							StringUtils.hasText(assessmentSummary) ? assessmentSummary : "(not available)",
+							score == null ? "(not available)" : String.valueOf(score));
+
+			return openRouterClient.chat(systemPrompt, userPrompt)
+					.map(s -> truncate(s, 6000))
+					.orElseGet(() -> fallback(raw, score, ppe, stability, straightness, assessmentSummary, cv));
 		}
 
-		return fallback(raw, score);
+		return fallback(raw, score, ppe, stability, straightness, assessmentSummary, cv);
 	}
 
-	private String fallback(String raw, Integer score) {
-		String normalized = raw.toLowerCase(Locale.ROOT);
+	private String fallback(String raw, Integer score, String ppe, String stability, String straightness, String assessmentSummary, String cv) {
+		String normalized = raw == null ? "" : raw.toLowerCase(Locale.ROOT);
 		for (Map.Entry<String, String> e : slangMap().entrySet()) {
 			normalized = normalized.replace(e.getKey(), e.getValue());
 		}
-		String scoreLine = score == null ? "" : ("Skill Score (AI-assisted): " + score + "/100\n");
+
+		String ppeLevel = mapLevel(ppe, "PASS", "FAIL", "PENDING");
+		String stabilityLevel = mapLevel(stability, "GOOD", "WEAK", "PENDING");
+		String precisionLevel = mapLevel(straightness, "GOOD", "WEAK", "PENDING");
+		String consistencyLevel = stabilityLevel;
+
+		int safety = mapScore(ppe, 80, 40, 50);
+		int technical = score == null ? 60 : Math.max(0, Math.min(100, score));
+		int workConsistency = mapScore(stability, 75, 45, 50);
+
+		String evidenceNote = StringUtils.hasText(assessmentSummary) ? assessmentSummary : (StringUtils.hasText(cv) ? cv : "Limited work evidence signals were provided.");
+
 		return """
-				PROFESSIONAL SUMMARY
-				Industrial welding worker with hands-on exposure to ship repair, structural welding, and heavy maintenance tasks. %sFocused on safe work practices, jobsite discipline, and consistent weld quality.
+				[WORKER PORTFOLIO]
 
-				CORE SKILLS
-				- SMAW / stick welding (basic to intermediate)
-				- Structural repair and reinforcement
-				- Dockside / shipyard support welding
-				- PPE compliance and basic safety checks
+				Professional Summary:
+				- Welding worker with practical exposure to common site tasks such as basic repair work, joint preparation, and maintaining steady tool handling. Communicates a hands-on, task-focused work profile and is best suited for entry to intermediate welding support roles. Some details are inferred due to limited written or visual evidence.
 
-				WORK EXPERIENCE (BULLETS)
-				- Supported maintenance and repair tasks in industrial and maritime-adjacent environments.
-				- Assisted in hull/structure patching and weld joint preparation (cleaning, fit-up, basic grinding).
-				- Followed basic QC checks: bead consistency, porosity spotting, alignment checks.
+				Key Skills:
+				- Basic welding operation and safe tool handling
+				- Joint preparation support (cleaning, fit-up assistance, grinding)
+				- Worksite safety habits and PPE awareness
+				- Consistent hand control during short welding tasks
+				- Following instructions and quality checks (basic)
 
-				INDUSTRY KEYWORDS
-				maritime welding, ship repair, hull maintenance, structural welding, heavy industrial maintenance, dockside operations, SMAW, safety compliance
-				""".formatted(scoreLine);
+				Work Evidence Insights:
+				- PPE Compliance: %s (based on available signals: %s)
+				- Stability: %s (based on available signals: %s)
+				- Precision: %s (based on available signals: %s)
+				- Consistency: %s (limited evidence; inferred mainly from stability signals)
+
+				Skill Indicators (Pre-Score):
+				- Safety Awareness: %d
+				- Technical Skill: %d
+				- Work Consistency: %d
+
+				Overall Hireability:
+				- Appears employable for general welding support work with supervision, especially if paired with clear safety expectations. Stronger hireability would require clearer work history details and more complete work evidence signals.
+				""".formatted(
+						ppeLevel, summarizeSignal(ppe, evidenceNote),
+						stabilityLevel, summarizeSignal(stability, evidenceNote),
+						precisionLevel, summarizeSignal(straightness, evidenceNote),
+						consistencyLevel,
+						safety, technical, workConsistency);
 	}
 
 	private static Map<String, String> slangMap() {
@@ -110,5 +180,50 @@ public class PortfolioService {
 		}
 		return s.substring(0, max);
 	}
-}
 
+	private static String mapLevel(String signal, String goodToken, String badToken, String pendingToken) {
+		String s = safe(signal).trim().toUpperCase(Locale.ROOT);
+		if (!StringUtils.hasText(s) || pendingToken.equals(s)) {
+			return "Medium";
+		}
+		if (goodToken.equals(s) || "PASS".equals(s)) {
+			return "High";
+		}
+		if (badToken.equals(s) || "FAIL".equals(s)) {
+			return "Low";
+		}
+		if ("MODERATE".equals(s)) {
+			return "Medium";
+		}
+		return "Medium";
+	}
+
+	private static int mapScore(String signal, int goodScore, int badScore, int pendingScore) {
+		String s = safe(signal).trim().toUpperCase(Locale.ROOT);
+		if (!StringUtils.hasText(s) || "PENDING".equals(s)) {
+			return pendingScore;
+		}
+		if ("PASS".equals(s) || "GOOD".equals(s)) {
+			return goodScore;
+		}
+		if ("FAIL".equals(s) || "WEAK".equals(s)) {
+			return badScore;
+		}
+		if ("MODERATE".equals(s)) {
+			return (goodScore + badScore) / 2;
+		}
+		return pendingScore;
+	}
+
+	private static String summarizeSignal(String primarySignal, String evidenceNote) {
+		String s = safe(primarySignal).trim();
+		if (StringUtils.hasText(s) && !"PENDING".equalsIgnoreCase(s)) {
+			return s;
+		}
+		String e = safe(evidenceNote).trim();
+		if (e.length() > 160) {
+			return e.substring(0, 160);
+		}
+		return StringUtils.hasText(e) ? e : "not provided";
+	}
+}

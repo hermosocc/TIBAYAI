@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('My Applications - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4">
+	<div class="d-flex justify-content-between align-items-end mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">My Applications</h3>
+			<div class="text-muted">Track application status updates and hiring decisions.</div>
+		</div>
+		<a class="btn btn-outline-dark" th:href="@{/worker/dashboard}">Back</a>
+	</div>
+	<div class="row g-3">
+		<div class="col-lg-6" th:each="a : ${applications}">
+			<div class="card shadow-sm">
+				<div class="card-body">
+					<div class="d-flex justify-content-between">
+						<div>
+							<div class="fw-semibold" th:text="${a.jobPost.title}">Title</div>
+							<div class="text-muted small" th:text="${a.jobPost.city}">City</div>
+						</div>
+						<span class="badge bg-primary" th:text="${a.status}">APPLIED</span>
+					</div>
+					<div class="small text-muted mt-2">
+						Applied: <span th:text="${#temporals.format(a.appliedAt, 'yyyy-MM-dd HH:mm')}"></span>
+					</div>
+					<div class="small mt-2" th:if="${a.coverNote != null}" th:text="${#strings.abbreviate(a.coverNote, 160)}"></div>
+					<div class="d-flex gap-2 mt-3">
+						<a class="btn btn-outline-dark btn-sm" th:href="@{/worker/jobs/{id}(id=${a.jobPost.id})}">View Job</a>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-12" th:if="${#lists.isEmpty(applications)}">
+			<div class="alert alert-info">No applications yet.</div>
+		</div>
+	</div>
+</main>
+</body>
+</html>
+

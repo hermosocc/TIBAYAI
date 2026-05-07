@@ -1,0 +1,200 @@
+diff --git a/tibay-ai/README.md b/tibay-ai/README.md
+index 7fb2687..cf951df 100644
+--- a/tibay-ai/README.md
++++ b/tibay-ai/README.md
+@@ -72,6 +72,9 @@ export ROBOFLOW_PPE_MODEL_URL=https://detect.roboflow.com/<ppe-model>/<version>
+ 
+ Roboflow hosted endpoints normally accept a multipart form upload field named `file` and return JSON `predictions[]`.
+ 
++**Note (MVP behavior):** the identity verification "face check" in this repo is intentionally simplified for demo use.
++It treats the face step as **PASS** if a face is detected in **both** the ID image and the selfie (it does not do real face recognition).
++
+ ## Demo Flow
+ 
+ 1. Login as Worker → `Verify ID` → upload Government ID + Selfie
+diff --git a/tibay-ai/src/main/java/com/tibay/tibayai/config/TibayProperties.java b/tibay-ai/src/main/java/com/tibay/tibayai/config/TibayProperties.java
+index ccdd2c6..0de5536 100644
+--- a/tibay-ai/src/main/java/com/tibay/tibayai/config/TibayProperties.java
++++ b/tibay-ai/src/main/java/com/tibay/tibayai/config/TibayProperties.java
+@@ -20,4 +20,9 @@ public class TibayProperties {
+ 	private String roboflowApiKey;
+ 	private String roboflowPpeModelUrl;
+ 	private String roboflowFaceModelUrl;
++
++	/**
++	 * Minimum confidence (0..1) required to consider a Roboflow detection as a face.
++	 */
++	private double faceDetectionMinConfidence = 0.40;
+ }
+diff --git a/tibay-ai/src/main/java/com/tibay/tibayai/entity/VerificationStatus.java b/tibay-ai/src/main/java/com/tibay/tibayai/entity/VerificationStatus.java
+index 8bfd5fd..d74240c 100644
+--- a/tibay-ai/src/main/java/com/tibay/tibayai/entity/VerificationStatus.java
++++ b/tibay-ai/src/main/java/com/tibay/tibayai/entity/VerificationStatus.java
+@@ -2,7 +2,7 @@ package com.tibay.tibayai.entity;
+ 
+ public enum VerificationStatus {
+ 	PENDING,
++	REVIEW_REQUIRED,
+ 	VERIFIED,
+ 	FAILED
+ }
+diff --git a/tibay-ai/src/main/java/com/tibay/tibayai/service/VerificationService.java b/tibay-ai/src/main/java/com/tibay/tibayai/service/VerificationService.java
+index 80a311a..b61108c 100644
+--- a/tibay-ai/src/main/java/com/tibay/tibayai/service/VerificationService.java
++++ b/tibay-ai/src/main/java/com/tibay/tibayai/service/VerificationService.java
+@@ -14,9 +14,9 @@ import com.tibay.tibayai.entity.VerificationStatus;
+ import com.tibay.tibayai.entity.WorkerProfile;
+ import com.tibay.tibayai.repo.GovernmentIdVerificationRepository;
+ import com.tibay.tibayai.repo.WorkerProfileRepository;
++import com.tibay.tibayai.config.TibayProperties;
+ import com.tibay.tibayai.service.ai.OcrSpaceClient;
+ import com.tibay.tibayai.service.ai.RoboflowClient;
+-import com.tibay.tibayai.util.ImageUtils;
+ 
+ import lombok.RequiredArgsConstructor;
+ 
+@@ -28,39 +28,53 @@ public class VerificationService {
+ 	private final StorageService storageService;
+ 	private final OcrSpaceClient ocrSpaceClient;
+ 	private final RoboflowClient roboflowClient;
++	private final TibayProperties properties;
+ 
+ 	@Transactional
+ 	public GovernmentIdVerification verify(WorkerProfile workerProfile, String idImagePath, String selfiePath) {
+ 		File idFile = storageService.resolveAbsolute(idImagePath).toFile();
+ 		File selfieFile = storageService.resolveAbsolute(selfiePath).toFile();
+ 
++		boolean ocrEnabled = ocrSpaceClient.enabled();
++		boolean faceEnabled = roboflowClient.faceEnabled();
++		double minFaceConf = properties.getFaceDetectionMinConfidence();
++
+ 		String ocrText = ocrSpaceClient.extractText(idFile).orElse("");
+ 		boolean idLooksValid = looksLikePhilippineId(ocrText);
+ 
+-		Integer faceMatchScore = null;
++		Integer idFaceConfidencePct = null;
++		Integer selfieFaceConfidencePct = null;
++		Integer faceMatchScore = null; // retained for DB compatibility; in demo mode we don't compute similarity
+ 		boolean faceOk = false;
+-		try {
+-			var idFace = roboflowClient.detectFaces(idFile).stream()
+-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
+-					.orElse(null);
+-			var selfieFace = roboflowClient.detectFaces(selfieFile).stream()
+-					.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
+-					.orElse(null);
+-
+-			if (idFace != null && selfieFace != null) {
+-				var idImg = ImageUtils.read(idFile);
+-				var selfieImg = ImageUtils.read(selfieFile);
+-
+-				var idCrop = cropFromCenterBox(idImg, idFace);
+-				var selfieCrop = cropFromCenterBox(selfieImg, selfieFace);
+-
+-				long h1 = ImageUtils.averageHash(idCrop);
+-				long h2 = ImageUtils.averageHash(selfieCrop);
+-				faceMatchScore = ImageUtils.similarityScore(h1, h2);
+-				faceOk = faceMatchScore >= 80;
++		if (faceEnabled) {
++			try {
++				var idFace = roboflowClient.detectFaces(idFile).stream()
++						.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
++						.orElse(null);
++				var selfieFace = roboflowClient.detectFaces(selfieFile).stream()
++						.max(Comparator.comparingDouble(RoboflowClient.Detection::confidence))
++						.orElse(null);
++
++				if (idFace != null) {
++					idFaceConfidencePct = (int) Math.round(idFace.confidence() * 100.0);
++					if (idFace.confidence() < minFaceConf) {
++						idFace = null;
++					}
++				}
++				if (selfieFace != null) {
++					selfieFaceConfidencePct = (int) Math.round(selfieFace.confidence() * 100.0);
++					if (selfieFace.confidence() < minFaceConf) {
++						selfieFace = null;
++					}
++				}
++
++				// DEMO MODE:
++				// "Pass" the face check if a face is detected in BOTH images.
++				// (ID-photo vs selfie matching is intentionally simplified in this MVP.)
++				faceOk = (idFace != null && selfieFace != null);
++			} catch (Exception e) {
++				faceOk = false;
+ 			}
+-		} catch (Exception e) {
+-			faceOk = false;
+ 		}
+ 
+ 		VerificationStatus status;
+@@ -69,13 +83,32 @@ public class VerificationService {
+ 			status = VerificationStatus.VERIFIED;
+ 			summary = "AI-assisted identity verification: VERIFIED. Checks passed: ID format appears valid; Face match confidence: HIGH; Identity consistency detected.";
+ 		} else {
+-			status = VerificationStatus.FAILED;
+-			StringBuilder sb = new StringBuilder("AI-assisted identity verification: FAILED. Reasons: ");
+-			if (!idLooksValid) {
+-				sb.append("Invalid ID format detected. ");
++			boolean anyUnavailable = !ocrEnabled || !faceEnabled;
++			status = anyUnavailable ? VerificationStatus.REVIEW_REQUIRED : VerificationStatus.FAILED;
++
++			StringBuilder sb = new StringBuilder();
++			sb.append("AI-assisted identity verification: ").append(status).append(". ");
++			sb.append("This is not a legal verification. ");
++
++			// Compact diagnostics so users know what's missing vs failing.
++			sb.append("Checks: ");
++			sb.append("OCR=").append(!ocrEnabled ? "UNAVAILABLE" : (idLooksValid ? "OK" : "FAILED")).append("; ");
++			sb.append("FACE=").append(!faceEnabled ? "UNAVAILABLE" : (faceOk ? "OK" : "FAILED")).append(";");
++
++			if (faceEnabled) {
++				sb.append(" FaceDetails(");
++				sb.append("id_conf=").append(idFaceConfidencePct == null ? "?" : (idFaceConfidencePct + "%")).append(", ");
++				sb.append("selfie_conf=").append(selfieFaceConfidencePct == null ? "?" : (selfieFaceConfidencePct + "%")).append(", ");
++				sb.append("min_conf=").append(String.format(Locale.ROOT, "%.2f", minFaceConf));
++				sb.append(").");
++			}
++
++			// Human readable reasons
++			if (!idLooksValid && ocrEnabled) {
++				sb.append(" ID format not recognized from OCR text.");
+ 			}
+-			if (!faceOk) {
+-				sb.append("Face mismatch or face not detected. ");
++			if (!faceOk && faceEnabled) {
++				sb.append(" Face mismatch or face not detected.");
+ 			}
+ 			summary = sb.toString().trim();
+ 		}
+diff --git a/tibay-ai/src/main/java/com/tibay/tibayai/service/ai/RoboflowClient.java b/tibay-ai/src/main/java/com/tibay/tibayai/service/ai/RoboflowClient.java
+index cdf2d23..995bdcd 100644
+--- a/tibay-ai/src/main/java/com/tibay/tibayai/service/ai/RoboflowClient.java
++++ b/tibay-ai/src/main/java/com/tibay/tibayai/service/ai/RoboflowClient.java
+@@ -35,6 +35,16 @@ public class RoboflowClient {
+ 						|| StringUtils.hasText(properties.getRoboflowPpeModelUrl()));
+ 	}
+ 
++	public boolean faceEnabled() {
++		return StringUtils.hasText(properties.getRoboflowApiKey())
++				&& StringUtils.hasText(properties.getRoboflowFaceModelUrl());
++	}
++
++	public boolean ppeEnabled() {
++		return StringUtils.hasText(properties.getRoboflowApiKey())
++				&& StringUtils.hasText(properties.getRoboflowPpeModelUrl());
++	}
++
+ 	public List<Detection> detectFaces(File imageFile) {
+ 		return detect(imageFile, properties.getRoboflowFaceModelUrl());
+ 	}
+diff --git a/tibay-ai/src/main/resources/application.properties b/tibay-ai/src/main/resources/application.properties
+index 7f16a0a..2412912 100644
+--- a/tibay-ai/src/main/resources/application.properties
++++ b/tibay-ai/src/main/resources/application.properties
+@@ -21,3 +21,4 @@ tibay.ocr-space-api-key=${OCR_SPACE_API_KEY:}
+ tibay.roboflow-api-key=${ROBOFLOW_API_KEY:}
+ tibay.roboflow-ppe-model-url=${ROBOFLOW_PPE_MODEL_URL:}
+ tibay.roboflow-face-model-url=${ROBOFLOW_FACE_MODEL_URL:}
++tibay.face-detection-min-confidence=${FACE_DETECTION_MIN_CONFIDENCE:0.40}

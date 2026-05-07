@@ -1,0 +1,4 @@
+body { font-feature-settings: "ss01" 1, "ss02" 1; }
+.card { border-radius: 14px; }
+.badge { border-radius: 10px; }
+

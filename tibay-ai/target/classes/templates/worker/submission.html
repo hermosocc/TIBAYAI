@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/head :: head('Upload Welding - TIBAY AI')"></head>
+<body class="bg-light">
+<div th:replace="fragments/nav :: nav"></div>
+<main class="container py-4" style="max-width: 860px;">
+	<div class="d-flex justify-content-between align-items-end mb-3">
+		<div>
+			<h3 class="fw-bold mb-0">Upload Welding Media</h3>
+			<div class="text-muted">AI-assisted preliminary technical evaluation (not a certification).</div>
+		</div>
+		<a class="btn btn-outline-dark" th:href="@{/worker/profile}">Back</a>
+	</div>
+	<div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+	<div class="card shadow-sm">
+		<div class="card-body">
+			<form method="post" enctype="multipart/form-data">
+				<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+				<div class="row g-3">
+					<div class="col-md-4">
+						<label class="form-label">Media Type</label>
+						<select class="form-select" name="mediaType">
+							<option value="IMAGE" selected>Image</option>
+							<option value="VIDEO">Video (simplified)</option>
+						</select>
+					</div>
+					<div class="col-md-8">
+						<label class="form-label">Upload File</label>
+						<input class="form-control" type="file" name="media" required>
+						<div class="form-text">Best demo: upload a clear image where PPE and the worker are visible.</div>
+					</div>
+				</div>
+				<button class="btn btn-dark mt-3" type="submit">Run AI Assessment</button>
+			</form>
+		</div>
+	</div>
+</main>
+</body>
+</html>
