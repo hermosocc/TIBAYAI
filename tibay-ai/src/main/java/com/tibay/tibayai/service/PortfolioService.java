@@ -103,7 +103,7 @@ public class PortfolioService {
 
 	private static String truncate(String s, int max) {
 		if (s == null) {
-			return null;
+			return "";
 		}
 		if (s.length() <= max) {
 			return s;
@@ -111,4 +111,3 @@ public class PortfolioService {
 		return s.substring(0, max);
 	}
 }
-

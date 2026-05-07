@@ -66,19 +66,24 @@ public class WorkerController {
 	}
 
 	@PostMapping("/verify")
-	public String verifySubmit(@RequestParam("govId") MultipartFile govId, @RequestParam("selfie") MultipartFile selfie, Model model)
-			throws IOException {
+	public String verifySubmit(@RequestParam("govId") MultipartFile govId, @RequestParam("selfie") MultipartFile selfie, Model model) {
 		var worker = currentUserService.requireWorkerProfile();
 		if (govId == null || govId.isEmpty() || selfie == null || selfie.isEmpty()) {
 			model.addAttribute("worker", worker);
 			model.addAttribute("error", "Government ID and selfie are required.");
 			return "worker/verify";
 		}
-		String idPath = storageService.store(govId, "worker/" + worker.getId() + "/id");
-		String selfiePath = storageService.store(selfie, "worker/" + worker.getId() + "/selfie");
-		worker.setSelfiePath(selfiePath);
-		verificationService.verify(worker, idPath, selfiePath);
-		return "redirect:/worker/profile";
+		try {
+			String idPath = storageService.storeImage(govId, "worker/" + worker.getId() + "/id");
+			String selfiePath = storageService.storeImage(selfie, "worker/" + worker.getId() + "/selfie");
+			worker.setSelfiePath(selfiePath);
+			verificationService.verify(worker, idPath, selfiePath);
+			return "redirect:/worker/profile";
+		} catch (IOException e) {
+			model.addAttribute("worker", worker);
+			model.addAttribute("error", e.getMessage());
+			return "worker/verify";
+		}
 	}
 
 	@GetMapping("/profile")
@@ -105,8 +110,7 @@ public class WorkerController {
 	}
 
 	@PostMapping("/submission")
-	public String submissionSubmit(@RequestParam("media") MultipartFile media, @RequestParam("mediaType") String mediaType, Model model)
-			throws IOException {
+	public String submissionSubmit(@RequestParam("media") MultipartFile media, @RequestParam("mediaType") String mediaType, Model model) {
 		var worker = currentUserService.requireWorkerProfile();
 		if (worker.getIdVerificationStatus() != VerificationStatus.VERIFIED) {
 			return "redirect:/worker/verify";
@@ -117,7 +121,14 @@ public class WorkerController {
 			return "worker/submission";
 		}
 		MediaType mt = "VIDEO".equalsIgnoreCase(mediaType) ? MediaType.VIDEO : MediaType.IMAGE;
-		String mediaPath = storageService.store(media, "worker/" + worker.getId() + "/weld");
+		String mediaPath;
+		try {
+			mediaPath = storageService.storeImageOrVideo(media, "worker/" + worker.getId() + "/weld");
+		} catch (IOException e) {
+			model.addAttribute("worker", worker);
+			model.addAttribute("error", e.getMessage());
+			return "worker/submission";
+		}
 
 		WeldingSubmission sub = new WeldingSubmission();
 		sub.setWorkerProfile(worker);
