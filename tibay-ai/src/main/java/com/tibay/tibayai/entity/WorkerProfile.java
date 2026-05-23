@@ -57,6 +57,8 @@ public class WorkerProfile {
 
 	private Integer latestSkillScore;
 
+	private Integer finalRatingScore;
+
 	@Column(length = 4000)
 	private String atsPortfolio;
 
@@ -73,4 +75,3 @@ public class WorkerProfile {
 		}
 	}
 }
-

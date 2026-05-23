@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="fragments/head :: head('Client Registration - TIBAY AI')"></head>
+<head th:replace="fragments/head :: head('Hirer Registration - TIBAY AI')"></head>
 <body class="bg-light">
 <div th:replace="fragments/nav :: nav"></div>
 <main class="container py-4" style="max-width: 820px;">
 	<div class="card shadow-sm">
 		<div class="card-body">
-			<h3 class="fw-bold mb-3">Client / Hirer Registration</h3>
+			<h3 class="fw-bold mb-3">Hirer Registration</h3>
 			<form method="post" th:object="${form}">
 				<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
 				<div class="row g-3">
@@ -32,18 +32,21 @@
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">Phone</label>
-						<input class="form-control" th:field="*{phone}">
+						<input class="form-control" th:field="*{phone}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"></div>
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">Barangay</label>
-						<input class="form-control" th:field="*{barangay}">
+						<input class="form-control" th:field="*{barangay}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('barangay')}" th:errors="*{barangay}"></div>
 					</div>
 					<div class="col-md-6">
 						<label class="form-label">City</label>
-						<input class="form-control" th:field="*{city}">
+						<input class="form-control" th:field="*{city}" required>
+						<div class="text-danger small" th:if="${#fields.hasErrors('city')}" th:errors="*{city}"></div>
 					</div>
 				</div>
-				<button class="btn btn-dark mt-3" type="submit">Create Client Account</button>
+				<button class="btn btn-dark mt-3" type="submit">Create Hirer Account</button>
 			</form>
 		</div>
 	</div>

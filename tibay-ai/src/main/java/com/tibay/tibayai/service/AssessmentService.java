@@ -92,7 +92,7 @@ public class AssessmentService {
 		String authenticitySummary = "AI-assisted authenticity screening: VERIFIED. Checks passed: No obvious AI-generated artifacts detected; Metadata did not show generative software markers.";
 		Optional<String> suspicious = MediaAuthenticityUtil.findSuspiciousSoftwareTag(media);
 		if (suspicious.isPresent()) {
-			authenticityStatus = VerificationStatus.FAILED;
+			authenticityStatus = VerificationStatus.REVIEW_REQUIRED;
 			authenticitySummary = "AI-assisted authenticity screening: WARNING. Possible manipulated or non-original content detected. Indicator: " + suspicious.get();
 		}
 
@@ -202,7 +202,7 @@ public class AssessmentService {
 
 	private static String truncate(String s, int max) {
 		if (s == null) {
-			return null;
+			return "";
 		}
 		if (s.length() <= max) {
 			return s;
@@ -210,4 +210,3 @@ public class AssessmentService {
 		return s.substring(0, max);
 	}
 }
-

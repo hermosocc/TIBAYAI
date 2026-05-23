@@ -7,7 +7,7 @@
 	<div class="d-flex justify-content-between align-items-end mb-3">
 		<div>
 			<h3 class="fw-bold mb-0">Matches</h3>
-			<div class="text-muted">Jobs where you were hired and connected to a client.</div>
+			<div class="text-muted">Jobs where you were hired and connected to a hirer.</div>
 		</div>
 		<a class="btn btn-outline-dark" th:href="@{/worker/dashboard}">Back</a>
 	</div>
@@ -18,7 +18,7 @@
 				<div class="card-body">
 					<div class="fw-semibold" th:text="${m.jobPost.title}">Job</div>
 					<div class="small text-muted">
-						Client: <span th:text="${m.clientProfile.companyName}">Company</span>
+						Hirer: <span th:text="${m.clientProfile.companyName}">Company</span>
 					</div>
 					<a class="btn btn-dark btn-sm mt-3" th:href="@{/chat/{id}(id=${m.id})}">Open Chat</a>
 				</div>
@@ -31,4 +31,3 @@
 </main>
 </body>
 </html>
-
